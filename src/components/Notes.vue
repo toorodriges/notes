@@ -7,9 +7,21 @@
          :key="index">
       <div class="note-header" :class="{ full: !grid }">
         <p
-            v-if="!changed"
-            @click="changeNoteTitle(note.title)">{{note.title}}</p>
-          <input type="text" :placeholder="note.title" v-if="changed" class="change-note-title">
+            v-if="!note.changed"
+            @click="changedStatus(note, index)"
+            ref="noteTitle">
+            {{note.title}}
+        </p>
+
+
+
+          <input type="text" v-if="note.changed" class="change-note-title"
+                 ref="changeNote"
+                 @focus="updateNotes($event, index)"
+                 @blur="handleBlur($event, index)"
+                 @keyup="setNewTitle($event, index)"
+                 autofocus/>
+          <span class="error">title cannot be empty</span>
         <p style="cursor: pointer; margin: 0 12px" @click="removeNote(index)">x</p>
       </div>
       <div class="note-body">
@@ -32,25 +44,95 @@
                 type: Boolean,
                 required: true
             },
-
-
         },
 
         data () {
             return {
-                changed: false
-
+                changedNotes: '',
+                tempNoteTitle: ''
             }
         },
+
         methods: {
             removeNote(index) {
-                console.log(`note id - ${index} removed`);
                 this.$emit('remove', index)
             },
 
-            changeNoteTitle (val) {
-                this.changed = true;
-                console.log('--$event-', val);
+            changedStatus (note, index) {
+
+                let targetIndex = index;
+                let title = '';
+                this.tempNoteTitle = note.title
+
+                this.notes.map( function (note, index, notes) {
+                    if (index === targetIndex) {
+                        note.changed = true;
+                        title = note.title
+                        note.date = new Date(Date.now()).toLocaleString()
+                        notes.splice(targetIndex, 1, note)
+                    }
+                })
+                this.tempNoteTitle = title;
+            },
+
+            updateNotes(targetIndex, value) {
+                if (value !== '') {
+                    this.$nextTick(() => {
+                        this.notes.map( function (note, index, notes) {
+                            if (index === targetIndex) {
+                                note.changed = false;
+                                note.title = value
+                                note.date = new Date(Date.now()).toLocaleString()
+                                notes.splice(targetIndex, 1, note)
+                            }
+                        })
+                    });
+                }
+
+                if (value === '') event.target.nextElementSibling.style.display = 'block'
+
+            },
+
+            setNewTitle(event,index) {
+
+                let title;
+                let targetIndex = index;
+
+                event.target.value === '' ? event.target.nextElementSibling.style.display = 'block' : event.target.nextElementSibling.style.display = 'none'
+
+                if(event.key === "Enter") {
+                    if (this.tempNoteTitle.length || event.target.value !== '') {
+                        title = event.target.value;
+                        this.updateNotes(targetIndex, title)
+                        this.tempNoteTitle = '';
+                    }
+                }
+
+                if (event.key === 'Escape') {
+                    title = this.tempNoteTitle
+                    this.updateNotes(targetIndex, title)
+                    this.tempNoteTitle = '';
+                }
+            },
+
+            handleBlur(event,index) {
+                if(event.target.value !== '') {
+                    this.tempNoteTitle =  event.target.value;
+                    let targetIndex = index;
+                    this.$refs.noteTitle.text = this.tempNoteTitle;
+                    this.$nextTick(() => {
+                        let title = event.target.value;
+                        this.notes.map( function (note, index, notes) {
+                            if (index === targetIndex) {
+                                note.changed = false;
+                                note.title = title
+                                notes.splice(targetIndex, 1, note)
+                            }
+                        })
+                    });
+                }
+
+                event.target.value === '' ? event.target.nextElementSibling.style.display = 'block' : event.target.nextElementSibling.style.display = 'none'
             }
         }
     }
@@ -96,7 +178,8 @@
           font-size: 22px;
           margin: 0;
           padding: 0;
-          border: 0;
+          border-bottom: 1px solid blue;
+          border-radius: 0;
       }
   }
 
@@ -104,6 +187,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    position: relative;
+
+    span.error {
+        display: none;
+        position: absolute;
+        bottom: -22px;
+        color: tomato;
+        font-size: 12px;
+    }
+
+
 
     &.full {
       justify-content: center;
